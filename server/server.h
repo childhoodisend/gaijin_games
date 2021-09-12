@@ -14,7 +14,7 @@
 class Server {
 public:
     Server(uint16 port, const char* host);
-    ~Server() = default;
+    ~Server();
 
     void get(const std::string& key);
     void set(const std::string& key, const std::string& value);
@@ -25,12 +25,16 @@ private:
     void on_accept(std::shared_ptr<CActiveSocket> socket_ptr);
     std::string describe_client(std::shared_ptr<CActiveSocket> socket_ptr);
 
+public:
+    bool is_running = false;
 private:
     std::thread listen_thread;
     std::mutex active_sockets_mutex;
-    bool is_running = false;
     CPassiveSocket listen_socket;
     std::unordered_set<std::shared_ptr<CActiveSocket>> active_sockets;
+
+    std::mutex file_mutex;
+    std::string file = "config.txt";
 };
 
 

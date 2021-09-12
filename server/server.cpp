@@ -2,6 +2,8 @@
 #include <exception>
 #include <vector>
 
+#include "bson/bson.h"
+
 #include "server.h"
 
 Server::Server(uint16 port, const char *host) {
@@ -18,13 +20,33 @@ Server::Server(uint16 port, const char *host) {
     }
 
     listen_thread = std::thread(&Server::listen_run, this);
-    listen_thread.join();
 }
+
+Server::~Server() {
+    std::cout << "Server::~Server() " << std::endl;
+
+    is_running = false;
+    listen_socket.Shutdown(CSimpleSocket::Both);
+    listen_socket.Close();
+
+    if(listen_thread.joinable()) {
+        listen_thread.join();
+    }
+
+    std::lock_guard<std::mutex> locker(active_sockets_mutex);
+    for (const auto& ptr : active_sockets) {
+        ptr->Shutdown(CSimpleSocket::Both);
+        ptr->Close();
+    }
+
+}
+
 
 void Server::listen_run() {
     while (is_running) {
         std::cout << "Server::listen_run() : wait for inbound connection on "
-                  << listen_socket.GetServerAddr() << ":" << listen_socket.GetServerPort() << std::endl;
+                                  << listen_socket.GetServerAddr() << ":"
+                                  << listen_socket.GetServerPort() << std::endl;
 
         auto socket_ptr = listen_socket.Accept();
         if (socket_ptr) {
@@ -67,25 +89,48 @@ std::string Server::describe_client(std::shared_ptr<CActiveSocket> socket_ptr) {
     return str;
 }
 
-void Server::receive_run(std::shared_ptr<CActiveSocket>) {
-    try {
-        std::vector<uint8_t> buffer;
+void Server::receive_run(std::shared_ptr<CActiveSocket> socket_ptr) {
 
+    std::cout << "Server::receive_run() " << std::endl;
+
+    try {
+        while(true) {
+            std::vector<uint8_t> buffer{};
+            auto res = socket_ptr->Receive(); // TODO add checks
+            if(res) {
+                std::cout << socket_ptr->GetData() << std::endl;
+//                memcpy(buffer.data(), socket_ptr->GetData(), socket_ptr->GetBytesReceived());
+//                std::cout << "size " << buffer.size() << std::endl;
+                buffer.clear();
+            }
+//        bson_t b;
+//        bson_init_static(&b, buffer.data(), buffer.size() * sizeof (uint8_t));
+//        char *j = bson_as_canonical_extended_json(&b, nullptr);
+//        std::cout << describe_client(socket_ptr) << " received msg : " << j << std::endl;
+//        bson_destroy(&b);
+//        bson_free(j);
+        }
+    }
+    catch (std::exception &ex) {
+        std::cerr << "Server::receive_run() exc : " << ex.what() << std::endl;
     }
     catch (...) {
-
+        std::cerr << "Server::receive_run() exc : ... " << std::endl;
     }
 }
 
 int main() {
     try {
         auto server = std::make_shared<Server>(4000, "127.0.0.1");
+        while(server->is_running) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
     }
     catch (std::exception &ex) {
-        std::cerr << "Catched server exc : " << ex.what() << std::endl;
+        std::cerr << "int main() exc : " << ex.what() << std::endl;
     }
     catch (...) {
-        std::cerr << "Another exc : " << std::endl;
+        std::cerr << "int main() exc : ... " << std::endl;
     }
 
     return EXIT_SUCCESS;
