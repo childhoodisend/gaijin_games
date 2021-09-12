@@ -9,6 +9,12 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wfloat-conversion -Wshado
 if(UNIX)
     add_definitions(-D_LINUX)
 endif()
+
+if(APPLE)
+    remove_definitions(-D_LINUX)
+    add_definitions(-D_DARWIN)
+endif()
+
 if(WIN32)
     add_definitions(-D_WIN32)
 endif()
