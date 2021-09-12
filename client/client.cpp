@@ -25,12 +25,29 @@ void client_run(scenario_t scenario){
     socket_ptr->SetBlocking();
 
     for (const auto& scena : scenario) {
-        std::vector<uint8_t> buffer;
+        std::vector<uint8_t> buffer{};
         for (const auto& msg : scena.msg) {
+            message_::print(msg);
             message_::to_bsonbuf(buffer, msg);
 
-            socket_ptr->Send(buffer.data(), buffer.size());
+            try {
+                auto res = socket_ptr->Send(buffer.data(), buffer.size());
+                if (res == 0) {
+                    std::cout << "send_thread: disconnect err " << socket_ptr->GetSocketDescriptor() << std::endl;
+                }
 
+                if (res < 0) {
+                    std::cout << "send_thread: socket err " << socket_ptr->GetSocketDescriptor() << std::endl;
+                }
+
+                if (res != (int32_t)buffer.size()) {
+                    std::cout << "send_thread: err " << socket_ptr->GetSocketDescriptor()
+                    << "sent " << res << " of " << buffer.size()<< std::endl;
+                }
+            }
+            catch (...) {
+                std::cerr << "client_run() exc : ... " << std::endl;
+            }
             std::this_thread::sleep_for(std::chrono::microseconds(scena.pause));
         }
     }
@@ -42,7 +59,7 @@ void client_run(scenario_t scenario){
 }
 
 int main () {
-    scenario_t scenario = {{simple_scenario(), 10}};
+    scenario_t scenario = {{simple_scenario(), 1000}};
 
     std::vector<std::thread> clients{};
     clients.emplace_back(&client_run, scenario);
