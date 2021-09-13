@@ -2,12 +2,11 @@
 #include <iostream>
 
 #include "message.h"
+#include "bson_conv.h"
 
 namespace message_ {
 
 void to_bson(bson_t *b, const message_ptr& msg) {
-
-    //std::cout << "to_bson() " << std::endl;
 
     if (!BSON_APPEND_UTF8(b, "command", msg->command.c_str())) {
         throw std::runtime_error("to_bson() err : can't append command ");
@@ -20,33 +19,46 @@ void to_bson(bson_t *b, const message_ptr& msg) {
     }
 }
 
-void to_bsonbuf(std::vector<uint8_t> &dst, const message_ptr& msg) {
+void from_bson(message_ptr& msg_ptr, const bson_t* b) {
+    msg_ptr->command = bson_conv::get_simple_field<std::string>(b, "command", true);
+    msg_ptr->key     = bson_conv::get_simple_field<std::string>(b, "key"    , true);
+    msg_ptr->value   = bson_conv::get_simple_field<std::string>(b, "value"  , true);
+}
 
-    //std::cout << "to_bsonbuf() " << std::endl;
+void from_bsonbuf(message_ptr& t, const std::vector<uint8_t> &buffer) {
+    bson_t b;
+
+    if(!bson_init_static(&b, buffer.data(), buffer.size())) {
+        throw std::runtime_error("from_bsonbuf() bson init static failed ");
+    }
+    try {
+        from_bson(t, &b);
+    }
+    catch (std::runtime_error &rt) {
+        std::cout << "from_bsonbuf() exc : " << rt.what() << std::endl;
+    }
+}
+
+void to_bsonbuf(std::vector<uint8_t> &dst, const message_ptr& t) {
 
     dst.clear();
 
     bson_t b;
     bson_init(&b);
     try {
-        to_bson(&b, msg);
+        to_bson(&b, t);
     }
     catch (std::runtime_error &rt) {
         std::cerr << "to_bsonbuf() exc : " << rt.what() << std::endl;
     }
     dst.resize(b.len);
-    char* j = bson_as_canonical_extended_json(&b, nullptr);
-    std::cout << j << std::endl;
-    bson_free(j);
-    memcpy(dst.data(), bson_get_data(&b), dst.size());
+    memcpy(dst.data(), bson_get_data(&b), b.len);
 }
 
-void from_bson() {}
-void from_bsonbuf() {}
 
 void print(const message_ptr& msg) {
-    std::cout << "command " << msg->command << std::endl;
-    std::cout << "key "     << msg->key << std::endl;
-    std::cout << "value "   << msg->value << std::endl;
+    std::cout << "\"command\" : " << "\"" << msg->command << "\"" << std::endl;
+    std::cout << "\"key\"     : " << "\"" << msg->key     << "\""<< std::endl;
+    std::cout << "\"value\"   : " << "\"" << msg->value   << "\""<< std::endl;
 }
 }
