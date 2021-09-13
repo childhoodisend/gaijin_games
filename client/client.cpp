@@ -32,7 +32,7 @@ void client_run(scenario_t scenario){
         std::vector<uint8_t> buffer{};
         for (const auto& msg : scena.msgs) {
             std::cout << "Sent --> " << std::endl;
-            message_::print(msg);
+            msg->print();
             std::cout << std::endl;
 
             message_::to_bsonbuf(buffer, msg);
