@@ -24,6 +24,10 @@ void client_run(scenario_t scenario){
     }
     socket_ptr->SetBlocking();
 
+    std::thread read_thread([&]{
+        //receive data
+    });
+
     for (const auto& scena : scenario) {
         std::vector<uint8_t> buffer{};
         for (const auto& msg : scena.msgs) {
@@ -59,6 +63,8 @@ void client_run(scenario_t scenario){
 
     socket_ptr->Shutdown(CSimpleSocket::Both);
     socket_ptr->Close();
+
+    read_thread.join();
 }
 
 int main () {
