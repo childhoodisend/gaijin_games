@@ -24,25 +24,32 @@ void client_run(scenario_t scenario){
     }
     socket_ptr->SetBlocking();
 
+    std::thread read_thread([&]{
+        //receive data
+    });
+
     for (const auto& scena : scenario) {
         std::vector<uint8_t> buffer{};
-        for (const auto& msg : scena.msg) {
-            message_::print(msg);
+        for (const auto& msg : scena.msgs) {
+            std::cout << "Sent --> " << std::endl;
+            msg->print();
+            std::cout << std::endl;
+
             message_::to_bsonbuf(buffer, msg);
 
             try {
-                auto res = socket_ptr->Send(buffer.data(), buffer.size());
-                if (res == 0) {
+                size_t size = buffer.size();
+                auto res1 = socket_ptr->Send((uint8_t*)(&size), sizeof (size_t));
+                auto res2 = socket_ptr->Send(buffer.data(), size);
+                if (res1 == 0 || res2 == 0) {
                     std::cout << "send_thread: disconnect err " << socket_ptr->GetSocketDescriptor() << std::endl;
                 }
-
-                if (res < 0) {
+                if (res2 < 0 || res1 < 0) {
                     std::cout << "send_thread: socket err " << socket_ptr->GetSocketDescriptor() << std::endl;
                 }
-
-                if (res != (int32_t)buffer.size()) {
+                if (res2 != (int32_t)buffer.size()) {
                     std::cout << "send_thread: err " << socket_ptr->GetSocketDescriptor()
-                    << "sent " << res << " of " << buffer.size()<< std::endl;
+                    << "sent " << res2 << " of " << size << std::endl;
                 }
             }
             catch (...) {
@@ -56,6 +63,8 @@ void client_run(scenario_t scenario){
 
     socket_ptr->Shutdown(CSimpleSocket::Both);
     socket_ptr->Close();
+
+    read_thread.join();
 }
 
 int main () {

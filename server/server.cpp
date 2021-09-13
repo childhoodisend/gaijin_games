@@ -94,21 +94,40 @@ void Server::receive_run(std::shared_ptr<CActiveSocket> socket_ptr) {
     std::cout << "Server::receive_run() " << std::endl;
 
     try {
-        while(true) {
-            std::vector<uint8_t> buffer{};
-            auto res = socket_ptr->Receive(); // TODO add checks
-            if(res) {
-                std::cout << socket_ptr->GetData() << std::endl;
-//                memcpy(buffer.data(), socket_ptr->GetData(), socket_ptr->GetBytesReceived());
-//                std::cout << "size " << buffer.size() << std::endl;
-                buffer.clear();
+        size_t sleep_counter = 0;
+        while(is_running) {
+            size_t size = 0;
+
+            // TODO add checks
+            socket_ptr->Receive(sizeof (size_t), (uint8_t*)(&size));
+            if(size != 0) {
+                socket_ptr->Receive((int32_t)size);
+                bson_t b;
+                bson_init_static(&b, socket_ptr->GetData(), size);
+
+                message_::request_message_ptr cur_msg = std::make_shared<message_::request_message>();
+                message_::from_bson(cur_msg, &b);
+                bson_destroy(&b);
+
+                handle_msg(cur_msg, socket_ptr);
             }
-//        bson_t b;
-//        bson_init_static(&b, buffer.data(), buffer.size() * sizeof (uint8_t));
-//        char *j = bson_as_canonical_extended_json(&b, nullptr);
-//        std::cout << describe_client(socket_ptr) << " received msg : " << j << std::endl;
-//        bson_destroy(&b);
-//        bson_free(j);
+            if(size == 0){
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                ++sleep_counter;
+                std::cout << "Sleep " << sleep_counter << " times "<< std::endl;
+            }
+            if(sleep_counter == 2) {
+                std::cout << "Slept " << sleep_counter * 1000 << " ms" << std::endl;
+                std::cout << "Disconnect " << describe_client(socket_ptr) << std::endl;
+                socket_ptr->Shutdown(CSimpleSocket::Both);
+                socket_ptr->Close();
+
+                for(const auto& d : data) {
+                    std::cout << "[" << d.first << "]" << " " << d.second << std::endl;
+                }
+
+                break;
+            }
         }
     }
     catch (std::exception &ex) {
@@ -117,6 +136,68 @@ void Server::receive_run(std::shared_ptr<CActiveSocket> socket_ptr) {
     catch (...) {
         std::cerr << "Server::receive_run() exc : ... " << std::endl;
     }
+}
+
+void Server::handle_msg(const message_::request_message_ptr& msg_ptr, std::shared_ptr<CActiveSocket> socket_ptr) {
+    if (std::find(possible_commands.begin(), possible_commands.end(), msg_ptr->command) != possible_commands.end()) {
+        if (msg_ptr->command == "get") {
+            try {
+                std::string val = get(msg_ptr->key);
+
+                message_::answer_message_ptr new_msg = std::make_shared<message_::answer_message>(msg_ptr->key, val);
+
+                send_msg_to_client(new_msg, socket_ptr);
+            }
+            catch (std::runtime_error &rt) {
+                std::cerr << "Server::handle_msg() err : " << rt.what() << std::endl;
+                return;
+            }
+        }
+        else if (msg_ptr->command == "set") {
+            try {
+                set(msg_ptr->key, msg_ptr->value);
+            }
+            catch (...) {
+                std::cerr << "Server::handle_msg() exc : ... " << std::endl;
+            }
+        }
+    }
+    else {
+        throw std::runtime_error("Server::handle_command() exc : Invalid command " + msg_ptr->command);
+    }
+}
+
+void Server::send_msg_to_client(const message_::answer_message_ptr &msg_ptr, std::shared_ptr<CActiveSocket>& socket_ptr) {
+    std::vector<uint8_t> buffer{};
+    message_::to_bsonbuf(buffer, msg_ptr);
+
+    try {
+        auto res = socket_ptr->Send(buffer.data(), buffer.size());
+
+        if (res != (int32_t)buffer.size()) {
+            std::cerr << "Server::send_msg_to_client() err : send " << res << " of " << buffer.size() << std::endl;
+        }
+    }
+    catch (...) {
+        std::cerr << "Server::send_msg_to_client() exc : ... " << std::endl;
+    }
+}
+
+std::string Server::get(const std::string &key) {
+    std::lock_guard<std::mutex> locker(file_mutex);
+    if (data.find(key) != data.end()) {
+        std::string value = data[key];
+        return value;
+    }
+    else {
+        throw std::runtime_error("Server::get() err : invalid key " + key);
+    }
+}
+
+void Server::set(const std::string &key, const std::string &value) {
+    std::lock_guard<std::mutex> locker(file_mutex);
+
+    data.insert(std::make_pair(key, value));
 }
 
 int main() {

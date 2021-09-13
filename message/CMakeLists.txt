@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wshadow -Werror -pedantic -O3")
 
 add_library(message STATIC
-        message.cpp message.h)
+        message.cpp message.h
+        bson_conv.h)
 
 target_link_libraries(message PRIVATE mongo::bson_shared)
