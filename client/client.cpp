@@ -26,23 +26,26 @@ void client_run(scenario_t scenario){
 
     for (const auto& scena : scenario) {
         std::vector<uint8_t> buffer{};
-        for (const auto& msg : scena.msg) {
+        for (const auto& msg : scena.msgs) {
+            std::cout << "Sent --> " << std::endl;
             message_::print(msg);
+            std::cout << std::endl;
+
             message_::to_bsonbuf(buffer, msg);
 
             try {
-                auto res = socket_ptr->Send(buffer.data(), buffer.size());
-                if (res == 0) {
+                size_t size = buffer.size();
+                auto res1 = socket_ptr->Send((uint8_t*)(&size), sizeof (size_t));
+                auto res2 = socket_ptr->Send(buffer.data(), size);
+                if (res1 == 0 || res2 == 0) {
                     std::cout << "send_thread: disconnect err " << socket_ptr->GetSocketDescriptor() << std::endl;
                 }
-
-                if (res < 0) {
+                if (res2 < 0 || res1 < 0) {
                     std::cout << "send_thread: socket err " << socket_ptr->GetSocketDescriptor() << std::endl;
                 }
-
-                if (res != (int32_t)buffer.size()) {
+                if (res2 != (int32_t)buffer.size()) {
                     std::cout << "send_thread: err " << socket_ptr->GetSocketDescriptor()
-                    << "sent " << res << " of " << buffer.size()<< std::endl;
+                    << "sent " << res2 << " of " << size << std::endl;
                 }
             }
             catch (...) {
