@@ -88,27 +88,47 @@ std::string Server::describe_client(std::shared_ptr<CActiveSocket> socket_ptr) {
 
     return str;
 }
-
+template<typename T>
+void print(std::vector<T>& vec) {
+    for(const auto& el : vec) {
+        std::cout << el << " ";
+    }
+    std::cout << std::endl;
+}
 void Server::receive_run(std::shared_ptr<CActiveSocket> socket_ptr) {
 
     std::cout << "Server::receive_run() " << std::endl;
 
     try {
-        while(true) {
-            std::vector<uint8_t> buffer{};
-            auto res = socket_ptr->Receive(); // TODO add checks
-            if(res) {
-                std::cout << socket_ptr->GetData() << std::endl;
-//                memcpy(buffer.data(), socket_ptr->GetData(), socket_ptr->GetBytesReceived());
-//                std::cout << "size " << buffer.size() << std::endl;
-                buffer.clear();
+        size_t sleep_counter = 0;
+        while(is_running) {
+            size_t size = 0;
+
+            // TODO add checks
+            socket_ptr->Receive(sizeof (size_t), (uint8_t*)(&size));
+            if(size != 0) {
+                socket_ptr->Receive((int32_t)size);
+
+//                handle_msg();
+                bson_t b;
+                bson_init_static(&b, socket_ptr->GetData(), size);
+                char *j = bson_as_canonical_extended_json(&b, nullptr);
+                std::cout << describe_client(socket_ptr) << " received msgs : " << j << std::endl;
+                bson_destroy(&b);
+                bson_free(j);
             }
-//        bson_t b;
-//        bson_init_static(&b, buffer.data(), buffer.size() * sizeof (uint8_t));
-//        char *j = bson_as_canonical_extended_json(&b, nullptr);
-//        std::cout << describe_client(socket_ptr) << " received msg : " << j << std::endl;
-//        bson_destroy(&b);
-//        bson_free(j);
+            if(size == 0){
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                ++sleep_counter;
+                std::cout << "Sleep " << sleep_counter << " times "<< std::endl;
+            }
+            if(sleep_counter == 10) {
+                std::cout << "Slept " << sleep_counter * 1000 << " ms" << std::endl;
+                std::cout << "Disconnect " << describe_client(socket_ptr) << std::endl;
+                socket_ptr->Shutdown(CSimpleSocket::Sends);
+                socket_ptr->Close();
+                break;
+            }
         }
     }
     catch (std::exception &ex) {
@@ -118,6 +138,18 @@ void Server::receive_run(std::shared_ptr<CActiveSocket> socket_ptr) {
         std::cerr << "Server::receive_run() exc : ... " << std::endl;
     }
 }
+
+//void Server::handle_msg(const message_::message_ptr& msg_ptr) {
+//    if (std::find(possible_commands.begin(), possible_commands.end(), msg_ptr->command) != possible_commands.end()) {
+//        if (msg_ptr->command == "get") {
+//            std::string got_val = get(msg_ptr->key);
+////            send_msg_to_client(got_val);
+//        }
+//    }
+//    else {
+//        throw std::runtime_error("Server::handle_command() exc : Invalid command " + msg_ptr->command);
+//    }
+//}
 
 int main() {
     try {

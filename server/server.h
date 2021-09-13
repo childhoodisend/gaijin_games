@@ -7,6 +7,8 @@
 #include "clsocket/src/ActiveSocket.h"
 #include "clsocket/src/PassiveSocket.h"
 
+#include "message/message.h"
+
 #ifndef GAIJIN_GAMES_SERVER_H
 #define GAIJIN_GAMES_SERVER_H
 
@@ -16,8 +18,11 @@ public:
     Server(uint16 port, const char* host);
     ~Server();
 
-    void get(const std::string& key);
+    std::string get(const std::string& key);
     void set(const std::string& key, const std::string& value);
+
+    void handle_msg(const message_::message_ptr& msg_ptr);
+    void send_msg_to_client(const message_::message_ptr& msg_ptr, std::shared_ptr<CActiveSocket> socket_ptr);
 
 private:
     void listen_run();
@@ -28,6 +33,8 @@ private:
 public:
     bool is_running = false;
 private:
+    std::vector<std::string> possible_commands = {"get", "set"};
+
     std::thread listen_thread;
     std::mutex active_sockets_mutex;
     CPassiveSocket listen_socket;
