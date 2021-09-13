@@ -11,15 +11,15 @@ using namespace message_;
 
 struct msgs_and_pause {
 public:
-    msgs_and_pause(std::vector<message_ptr> _msg, int _pause) : msg(std::move(_msg)) , pause(_pause) {};
+    msgs_and_pause(std::vector<message_ptr> _msgs, int _pause) : msgs(std::move(_msgs)) , pause(_pause) {};
 
-    std::vector<message_ptr> msg{};
+    std::vector<message_ptr> msgs{};
     int pause = 0;
 };
 
 typedef std::vector<msgs_and_pause> scenario_t;
 
-static const int64_t MSG_SIZE = 10000;
+static const int64_t MSG_SIZE = 100;
 const std::vector<std::string> possible_commands{"get", "set"};
 const std::vector<std::string> possible_values{"a", "b", "c", "d", "e", "f", "g"};
 
