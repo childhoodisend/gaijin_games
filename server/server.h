@@ -29,6 +29,7 @@ private:
     void receive_run(std::shared_ptr<CActiveSocket> socket_ptr);
     void on_accept(std::shared_ptr<CActiveSocket> socket_ptr);
     std::string describe_client(std::shared_ptr<CActiveSocket> socket_ptr);
+    void destroy_client(std::shared_ptr<CActiveSocket> socket_ptr);
 
 public:
     bool is_running = false;

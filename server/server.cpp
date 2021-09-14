@@ -200,6 +200,21 @@ void Server::set(const std::string &key, const std::string &value) {
     data.insert(std::make_pair(key, value));
 }
 
+void Server::destroy_client(std::shared_ptr<CActiveSocket> socket_ptr) {
+
+    std::cout << "Server::destroy_client() " << describe_client(socket_ptr) << std::endl;
+
+    std::lock_guard<std::mutex> locker(active_sockets_mutex);
+
+    socket_ptr->Shutdown(CSimpleSocket::Both);
+    socket_ptr->Close();
+
+    active_sockets.erase(socket_ptr);
+
+    std::cout << "Clients left " << active_sockets.size() << std::endl;
+
+}
+
 int main() {
     try {
         auto server = std::make_shared<Server>(4000, "127.0.0.1");
