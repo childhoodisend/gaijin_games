@@ -94,14 +94,37 @@ void Server::receive_run(std::shared_ptr<CActiveSocket> socket_ptr) {
     std::cout << "Server::receive_run() " << std::endl;
 
     try {
-        size_t sleep_counter = 0;
         while(is_running) {
             size_t size = 0;
 
-            // TODO add checks
-            socket_ptr->Receive(sizeof (size_t), (uint8_t*)(&size));
+            auto res1 = socket_ptr->Receive(sizeof (size_t), (uint8_t*)(&size));
+
+            if(size == 0) {
+                std::cerr << "Server::receive_run() exit " << std::endl;
+                destroy_client(socket_ptr);
+                break;
+            }
+
+            if (res1 == 0) {
+                std::cout << "Server::receive_run(): disconnect err " << socket_ptr->GetSocketDescriptor() << std::endl;
+            }
+            if (res1 < 0) {
+                std::cout << "Server::receive_run(): socket err " << socket_ptr->GetSocketDescriptor() << std::endl;
+            }
+
             if(size != 0) {
-                socket_ptr->Receive((int32_t)size);
+                auto res2 = socket_ptr->Receive((int32_t)size);
+                if (res2 == 0) {
+                    std::cout << "Server::receive_run(): disconnect err " << socket_ptr->GetSocketDescriptor() << std::endl;
+                }
+                if (res2 < 0) {
+                    std::cout << "Server::receive_run(): socket err " << socket_ptr->GetSocketDescriptor() << std::endl;
+                }
+                if (res2 != (int32_t)size) {
+                    std::cout << "Server::receive_run(): err " << socket_ptr->GetSocketDescriptor()
+                              << " receive " << res2 << " of " << size << std::endl;
+                }
+
                 bson_t b;
                 bson_init_static(&b, socket_ptr->GetData(), size);
 
@@ -111,23 +134,8 @@ void Server::receive_run(std::shared_ptr<CActiveSocket> socket_ptr) {
 
                 handle_msg(cur_msg, socket_ptr);
             }
-            if(size == 0){
-                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-                ++sleep_counter;
-                std::cout << "Sleep " << sleep_counter << " times "<< std::endl;
-            }
-            if(sleep_counter == 2) {
-                std::cout << "Slept " << sleep_counter * 1000 << " ms" << std::endl;
-                std::cout << "Disconnect " << describe_client(socket_ptr) << std::endl;
-                socket_ptr->Shutdown(CSimpleSocket::Both);
-                socket_ptr->Close();
 
-                for(const auto& d : data) {
-                    std::cout << "[" << d.first << "]" << " " << d.second << std::endl;
-                }
-
-                break;
-            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
     }
     catch (std::exception &ex) {
@@ -143,10 +151,13 @@ void Server::handle_msg(const message_::request_message_ptr& msg_ptr, std::share
         if (msg_ptr->command == "get") {
             try {
                 std::string val = get(msg_ptr->key);
-
-                message_::answer_message_ptr new_msg = std::make_shared<message_::answer_message>(msg_ptr->key, val);
-
-                send_msg_to_client(new_msg, socket_ptr);
+                if(val == "none") {
+                    return;
+                }
+                else {
+                    message_::answer_message_ptr new_msg = std::make_shared<message_::answer_message>(msg_ptr->key, val);
+                    send_msg_to_client(new_msg, socket_ptr);
+                }
             }
             catch (std::runtime_error &rt) {
                 std::cerr << "Server::handle_msg() err : " << rt.what() << std::endl;
@@ -157,8 +168,9 @@ void Server::handle_msg(const message_::request_message_ptr& msg_ptr, std::share
             try {
                 set(msg_ptr->key, msg_ptr->value);
             }
-            catch (...) {
-                std::cerr << "Server::handle_msg() exc : ... " << std::endl;
+            catch (std::runtime_error &rt) {
+                std::cerr << "Server::handle_msg() err : " << rt.what() << std::endl;
+                return;
             }
         }
     }
@@ -168,14 +180,26 @@ void Server::handle_msg(const message_::request_message_ptr& msg_ptr, std::share
 }
 
 void Server::send_msg_to_client(const message_::answer_message_ptr &msg_ptr, std::shared_ptr<CActiveSocket>& socket_ptr) {
+
+    std::cout << "Server sent to " << describe_client(socket_ptr) << " --> " << std::endl;
+    msg_ptr->print();
+
     std::vector<uint8_t> buffer{};
     message_::to_bsonbuf(buffer, msg_ptr);
 
     try {
-        auto res = socket_ptr->Send(buffer.data(), buffer.size());
-
-        if (res != (int32_t)buffer.size()) {
-            std::cerr << "Server::send_msg_to_client() err : send " << res << " of " << buffer.size() << std::endl;
+        size_t size = buffer.size();
+        auto res1 = socket_ptr->Send((uint8_t*)(&size), sizeof (size_t));
+        auto res2 = socket_ptr->Send(buffer.data(), size);
+        if (res1 == 0 || res2 == 0) {
+            std::cout << "Server::send_msg_to_client() : disconnect err " << socket_ptr->GetSocketDescriptor() << std::endl;
+        }
+        if (res2 < 0 || res1 < 0) {
+            std::cout << "Server::send_msg_to_client() : socket err " << socket_ptr->GetSocketDescriptor() << std::endl;
+        }
+        if (res2 != (int32_t)buffer.size()) {
+            std::cout << "Server::send_msg_to_client(): err " << socket_ptr->GetSocketDescriptor()
+                      << "sent " << res2 << " of " << size << std::endl;
         }
     }
     catch (...) {
@@ -184,6 +208,9 @@ void Server::send_msg_to_client(const message_::answer_message_ptr &msg_ptr, std
 }
 
 std::string Server::get(const std::string &key) {
+
+    //std::cout << "Server::get() " << std::endl;
+
     std::lock_guard<std::mutex> locker(file_mutex);
     if (data.find(key) != data.end()) {
         std::string value = data[key];
@@ -195,9 +222,16 @@ std::string Server::get(const std::string &key) {
 }
 
 void Server::set(const std::string &key, const std::string &value) {
-    std::lock_guard<std::mutex> locker(file_mutex);
 
-    data.insert(std::make_pair(key, value));
+    //std::cout << "Server::set() " << std::endl;
+
+    std::lock_guard<std::mutex> locker(file_mutex);
+    if(data.find(key) != data.end()) {
+        data.insert(std::make_pair(key, value));
+    }
+    else {
+        throw std::runtime_error("Server::set() err : key already exist " + key);
+    }
 }
 
 void Server::destroy_client(std::shared_ptr<CActiveSocket> socket_ptr) {
