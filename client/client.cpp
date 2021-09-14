@@ -25,7 +25,53 @@ void client_run(scenario_t scenario){
     socket_ptr->SetBlocking();
 
     std::thread read_thread([&]{
-        //receive data
+        while (true) {
+            size_t size = 0;
+            auto res1 = socket_ptr->Receive(sizeof (size_t), (uint8_t*)(&size));
+
+            if(size == 0) {
+                std::cerr << "read_thread exit " << std::endl;
+                break;
+            }
+
+            if (res1 == 0) {
+                std::cout << "read_thread: disconnect err " << socket_ptr->GetSocketDescriptor() << std::endl;
+            }
+            if (res1 < 0) {
+                std::cout << "read_thread: socket err " << socket_ptr->GetSocketDescriptor() << std::endl;
+            }
+
+
+            if (size != 0) {
+                auto res2 = socket_ptr->Receive((int32_t) size);
+
+                if (res2 == 0) {
+                    std::cout << "read_thread: disconnect err " << socket_ptr->GetSocketDescriptor() << std::endl;
+                }
+                if (res2 < 0) {
+                    std::cout << "read_thread: socket err " << socket_ptr->GetSocketDescriptor() << std::endl;
+                }
+                if (res2 != (int32_t)size) {
+                    std::cout << "read_thread: err " << socket_ptr->GetSocketDescriptor()
+                              << " receive " << res2 << " of " << size << std::endl;
+                }
+
+                answer_message_ptr answer = std::make_shared<answer_message>();
+                try {
+                    std::vector<uint8_t> buffer{socket_ptr->GetData(),socket_ptr->GetData() + size};
+                    from_bsonbuf(answer, buffer);
+
+                    std::cout << "Received --> " << std::endl;
+                    answer->print();
+                    std::cout << std::endl;
+                }
+                catch (std::runtime_error &rt) {
+                    std::cerr << "read_thread() err : " << rt.what() << std::endl;
+                }
+            }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
     });
 
     for (const auto& scena : scenario) {
