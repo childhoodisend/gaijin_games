@@ -175,7 +175,10 @@ void Server::handle_msg(const message_::request_message_ptr& msg_ptr, std::share
                     return;
                 }
                 else {
-                    message_::answer_message_ptr new_msg = std::make_shared<message_::answer_message>(msg_ptr->key, val);
+
+                    int64_t writes = data_statister_ptr->get_writes(msg_ptr->key);
+                    int64_t reads  = data_statister_ptr->get_reads(msg_ptr->key);
+                    message_::answer_message_ptr new_msg = std::make_shared<message_::answer_message>(msg_ptr->key, val, writes, reads);
                     send_msg_to_client(new_msg, socket_ptr);
                 }
             }
