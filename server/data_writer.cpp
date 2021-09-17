@@ -7,6 +7,7 @@ Writer::Writer() {
     is_running = true;
     write_thread = std::thread(&Writer::run, this);
     fout.open("../../server/config.txt", std::ios_base::out | std::ios_base::app);
+    fout << std::endl;
 }
 Writer::~Writer(){
     if(write_thread.joinable()) {
