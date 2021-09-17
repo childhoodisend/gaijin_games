@@ -211,7 +211,7 @@ std::string Server::get(const std::string &key) {
 
     //std::cout << "Server::get() " << std::endl;
 
-    std::lock_guard<std::mutex> locker(file_mutex);
+    std::lock_guard<std::mutex> locker(data_mutex);
     if (data.find(key) != data.end()) {
         std::string value = data[key];
         return value;
@@ -225,9 +225,10 @@ void Server::set(const std::string &key, const std::string &value) {
 
     //std::cout << "Server::set() " << std::endl;
 
-    std::lock_guard<std::mutex> locker(file_mutex);
+    std::lock_guard<std::mutex> locker(data_mutex);
     if(data.find(key) != data.end()) {
         data.insert(std::make_pair(key, value));
+        data_writer_ptr->add(key, value);
     }
     else {
         throw std::runtime_error("Server::set() err : key already exist " + key);
