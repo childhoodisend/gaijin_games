@@ -19,7 +19,7 @@ public:
 
 typedef std::vector<msgs_and_pause> scenario_t;
 
-static const int64_t MSG_SIZE = 100;
+static const int64_t MSG_SIZE = 1000;
 const std::vector<std::string> possible_commands{"get", "set"};
 const std::vector<std::string> possible_values{"a", "b", "c", "d", "e", "f", "g"};
 
@@ -29,8 +29,8 @@ std::vector<request_message_ptr> simple_scenario() {
 
     for (size_t i = 0; i < MSG_SIZE; ++i) {
         std::string key         = "ddxi" + std::to_string(i) + "id";
-        std::string value       = possible_values[i % 7] + std::to_string(i);
-        std::string cur_command = possible_commands[i % 2];
+        std::string value       = possible_values[i % possible_values.size()] + std::to_string(i);
+        std::string cur_command = possible_commands[i % possible_commands.size()];
         request_message_ptr ptr_t = nullptr;
 
         if (cur_command == "set") {
