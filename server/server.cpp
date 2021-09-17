@@ -1,6 +1,7 @@
 #include <iostream>
 #include <exception>
 #include <vector>
+#include <fstream>
 
 #include "bson/bson.h"
 
@@ -19,7 +20,25 @@ Server::Server(uint16 port, const char *host) {
                                  + listen_socket.DescribeError());
     }
 
-    listen_thread = std::thread(&Server::listen_run, this);
+    listen_thread = std::thread(&Server::listen_run, this); // start listen clients
+    data_writer_ptr = std::make_shared<writer::Writer>(); // start data_writer
+
+
+    //-----FILL DATA-----
+    std::ifstream fin;
+    fin.open("../../server/config.txt", std::ios_base::in);
+    if(fin.is_open()) {
+    while(!fin.eof()) {
+        std::string key{}, value{};
+        fin >> key >> value;
+        data[key] = value;
+    }
+    }
+    else {
+        std::cerr << "Server::Server() err : " << "can't open " << "config.txt" << std::endl;
+    }
+    fin.close();
+    //~~~~~FILL DATA~~~~~
 }
 
 Server::~Server() {
