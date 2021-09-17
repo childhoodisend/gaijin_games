@@ -10,6 +10,7 @@
 
 #include "message/message.h"
 #include "data_writer.h"
+#include "statister.h"
 
 #ifndef GAIJIN_GAMES_SERVER_H
 #define GAIJIN_GAMES_SERVER_H
@@ -45,7 +46,8 @@ private:
 
     std::mutex data_mutex;
     std::unordered_map<std::string, std::string> data{};
-    writer::writer_ptr data_writer_ptr;
+    writer::writer_ptr data_writer_ptr = nullptr;
+    statister::statister_ptr data_statister_ptr = nullptr;
 };
 
 

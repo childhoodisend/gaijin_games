@@ -1,7 +1,6 @@
 #include <iostream>
 #include <exception>
 #include <vector>
-#include <fstream>
 
 #include "bson/bson.h"
 
@@ -22,7 +21,7 @@ Server::Server(uint16 port, const char *host) {
 
     listen_thread = std::thread(&Server::listen_run, this); // start listen clients
     data_writer_ptr = std::make_shared<writer::Writer>(); // start data_writer
-
+    data_statister_ptr = std::make_shared<statister::Statister>(); // start data_statister
 
     //-----FILL DATA-----
     std::ifstream fin;
@@ -170,6 +169,8 @@ void Server::handle_msg(const message_::request_message_ptr& msg_ptr, std::share
         if (msg_ptr->command == "get") {
             try {
                 std::string val = get(msg_ptr->key);
+                data_statister_ptr->reads_key(msg_ptr->key); // save key reads statistic
+
                 if(val == "none") {
                     return;
                 }
@@ -186,6 +187,8 @@ void Server::handle_msg(const message_::request_message_ptr& msg_ptr, std::share
         else if (msg_ptr->command == "set") {
             try {
                 set(msg_ptr->key, msg_ptr->value);
+                data_statister_ptr->writes_key(msg_ptr->key); // save key writes statistic
+
             }
             catch (std::runtime_error &rt) {
                 std::cerr << "Server::handle_msg() err : " << rt.what() << std::endl;
