@@ -11,7 +11,8 @@ void request_message::print() const {
 }
 
 void answer_message::print() const{
-    std::cout << "\"key\"     : " << "\"" << key     << "\""<< std::endl;
-    std::cout << "\"value\"   : " << "\"" << value   << "\""<< std::endl;
+    std::cout << key << "=" << value << std::endl;
+    std::cout << "reads="         << stat.reads << std::endl;
+    std::cout << "writes="        << stat.writes << std::endl;
 }
 }

@@ -28,16 +28,26 @@ public:
     std::string value{};
 };
 
+struct statistic {
+public:
+    statistic() = default;
+    statistic(int64_t _writes, int64_t _reads) : writes(_writes), reads(_reads) {};
+
+    int64_t writes = 0;
+    int64_t reads  = 0;
+};
+
 struct answer_message {
 public:
     answer_message() = default;
-    answer_message(const std::string& _key,const std::string& _value) : key(_key), value(_value) {};
+    answer_message(const std::string& _key,const std::string& _value, int64_t writes, int64_t reads) : key(_key), value(_value), stat(writes, reads) {};
     ~answer_message() = default;
 
     void print() const;
 
     std::string key{};
     std::string value{};
+    statistic   stat{};
 };
 
 typedef std::shared_ptr<request_message> request_message_ptr;
@@ -67,11 +77,15 @@ template<>
 inline void to_bson<answer_message_ptr>(bson_t *b, const answer_message_ptr& msg_ptr){
     bson_conv::append_simple_field(b, "key", msg_ptr->key);
     bson_conv::append_simple_field(b, "value", msg_ptr->value);
+    bson_conv::append_simple_field(b, "writes", msg_ptr->stat.writes);
+    bson_conv::append_simple_field(b, "reads", msg_ptr->stat.reads);
 }
 template<>
 inline void from_bson<answer_message_ptr>(answer_message_ptr& msg_ptr, const bson_t* b){
     bson_conv::get_simple_field<std::string>(msg_ptr->key, b, "key"    , true);
     bson_conv::get_simple_field<std::string>(msg_ptr->value, b, "value"  , true);
+    bson_conv::get_simple_field<int64_t>(msg_ptr->stat.writes, b, "writes"    , true);
+    bson_conv::get_simple_field<int64_t>(msg_ptr->stat.reads, b, "reads"  , true);
 }
 
 
