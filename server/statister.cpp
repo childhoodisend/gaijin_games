@@ -21,15 +21,14 @@ Statister::~Statister() {
 
 void Statister::run() {
     while(is_running) {
-        print_statistic();
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(5000));
         clear_last_statisctic();
+        std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+        print_statistic();
     }
 }
 
 void Statister::print_statistic() {
-    std::cout << "Statister         " << std::endl;
+    std::cout << "Statistic of      " << key_stat.size()  << " keys" << std::endl;
     std::cout << "ALL READS         " << reads_all        << std::endl;
     std::cout << "ALL WRITES        " << writes_all       << std::endl;
     std::cout << "READS  LAST 5 SEC " << reads_last_5sec  << std::endl;
@@ -49,17 +48,9 @@ void Statister::reads_inc() {
     reads_all++;
     reads_last_5sec++;
 }
-void Statister::reads_inc_unsafe() {
-    reads_all++;
-    reads_last_5sec++;
-}
 
 void Statister::writes_inc() {
     std::lock_guard<std::mutex> locker(m);
-    writes_all++;
-    writes_last5_sec++;
-}
-void Statister::writes_inc_unsafe() {
     writes_all++;
     writes_last5_sec++;
 }
@@ -69,12 +60,13 @@ void Statister::reads_key(const std::string &key) {
     auto it = key_stat.find(key);
     if (it != key_stat.end()) {
         it->second.second++;
-        reads_inc_unsafe();
     }
     else {
         std::cerr << "Statister::reads_key() __warning__ : new key " << key << std::endl;
         key_stat[key] = {0, 1};
     }
+    reads_all++;
+    reads_last_5sec++;
 }
 
 void Statister::writes_key(const std::string &key) {
@@ -82,11 +74,37 @@ void Statister::writes_key(const std::string &key) {
     auto it = key_stat.find(key);
     if (it != key_stat.end()) {
         it->second.first++;
-        writes_inc_unsafe();
     }
     else {
         std::cerr << "Statister::writes_key() __warning__ : new key " << key << std::endl;
         key_stat[key] = {1, 0};
+    }
+
+    writes_all++;
+    writes_last5_sec++;
+}
+
+int64_t Statister::get_reads(const std::string &key) {
+    std::lock_guard<std::mutex> locker(m);
+    auto it = key_stat.find(key);
+    if (it != key_stat.end()) {
+        return it->second.second;
+    }
+    else {
+        std::cerr << "Statister::get_reads() __warning__ : no key " << key << std::endl;
+        return 0;
+    }
+}
+
+int64_t Statister::get_writes(const std::string &key) {
+    std::lock_guard<std::mutex> locker(m);
+    auto it = key_stat.find(key);
+    if (it != key_stat.end()) {
+        return it->second.first;
+    }
+    else {
+        std::cerr << "Statister::get_writes() __warning__ : no key " << key << std::endl;
+        return 0;
     }
 }
 

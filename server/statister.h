@@ -16,16 +16,15 @@ public:
 
     void reads_key(const std::string& key);
     void writes_key(const std::string& key);
-
+    int64_t get_reads(const std::string& key);
+    int64_t get_writes(const std::string& key);
 private:
     void run();
     void print_statistic();
     void clear_last_statisctic();
 
     void reads_inc();
-    void reads_inc_unsafe();
     void writes_inc();
-    void writes_inc_unsafe();
 
 private:
     bool is_running = false;
