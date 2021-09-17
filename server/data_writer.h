@@ -16,9 +16,10 @@ class Writer {
 public:
     Writer();
     ~Writer();
-
-    void run();
     void add(const std::string key, const std::string value);
+
+private:
+    void run();
     void write_data();
 
 private:
