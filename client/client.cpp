@@ -101,7 +101,8 @@ void client_run(scenario_t scenario){
             catch (...) {
                 std::cerr << "client_run() exc : ... " << std::endl;
             }
-            std::this_thread::sleep_for(std::chrono::microseconds(scena.pause));
+
+            std::this_thread::sleep_for(std::chrono::milliseconds (scena.pause));
         }
     }
 
@@ -114,7 +115,7 @@ void client_run(scenario_t scenario){
 }
 
 int main () {
-    scenario_t scenario = {{simple_scenario(), 1000}};
+    scenario_t scenario = {{scenario_test_get(), 100}};
 
     std::vector<std::thread> clients{};
     clients.emplace_back(&client_run, scenario);
