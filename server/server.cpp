@@ -245,7 +245,7 @@ void Server::set(const std::string &key, const std::string &value) {
     //std::cout << "Server::set() " << std::endl;
 
     std::lock_guard<std::mutex> locker(data_mutex);
-    if(data.find(key) != data.end()) {
+    if(data.find(key) == data.end()) {
         data.insert(std::make_pair(key, value));
         data_writer_ptr->add(key, value);
     }
