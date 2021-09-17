@@ -28,6 +28,11 @@ public:
     std::string value{};
 };
 
+struct statistic {
+    int64_t writes = 0;
+    int64_t reads  = 0;
+};
+
 struct answer_message {
 public:
     answer_message() = default;
@@ -38,6 +43,7 @@ public:
 
     std::string key{};
     std::string value{};
+    statistic   stat{};
 };
 
 typedef std::shared_ptr<request_message> request_message_ptr;
